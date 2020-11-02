@@ -21,7 +21,26 @@ export const onThreadCreated = functions.firestore.document('stream/{threadId}')
   // Get the note document
   const note = snap.data()
   // Add an 'objectID' field which Algolia requires
-  note.objectID = context.params.threadId;
+  note.objectID = context.params.threadId
+  note.objecType = 'thread'
+
+  if (!client) throw new Error('algoliaClient not started')
+
+  // Write to the algolia index
+  const index = client.initIndex(ALGOLIA_INDEX_NAME)
+  
+  if (!index) throw new Error('could not init index ' + ALGOLIA_INDEX_NAME)
+
+  return index.saveObject(note)
+})
+
+// Update the search index every time a thread post is written.
+export const onThreadUpdated = functions.firestore.document('stream/{threadId}').onUpdate((snap, context) => {
+  // Get the note document
+  const note = snap.after.data()
+  // Add an 'objectID' field which Algolia requires
+  note.objectID = context.params.threadId
+  note.objecType = 'thread'
 
   if (!client) throw new Error('algoliaClient not started')
 
