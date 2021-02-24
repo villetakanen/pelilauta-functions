@@ -79,10 +79,11 @@ export const onWikiPageCreated = functions.firestore.document('sites/{siteid}/pa
   const siteid = context.params.siteid
   const pageid = context.params.pageid
 
-  return db.collection('pagelog').doc(`${siteid}/${pageid}`).set({
+  return db.collection('pagelog').doc(`${siteid}.${pageid}`).set({
     action: 'create',
     siteid: siteid,
     pageid: pageid,
+    name: update?.name || pageid,
     content: update?.htmlContent || '- no content -',
     author: update?.author || '- unknown author id -',
     changetime: update?.created || null
@@ -95,10 +96,11 @@ export const onWikiPageUpdated = functions.firestore.document('sites/{siteid}/pa
   const siteid = context.params.siteid
   const pageid = context.params.pageid
 
-  return db.collection('pagelog').doc(`${siteid}/${pageid}`).set({
+  return db.collection('pagelog').doc(`${siteid}.${pageid}`).set({
     action: 'update',
     siteid: siteid,
     pageid: pageid,
+    name: update?.name || pageid,
     content: update?.htmlContent || '- no content -',
     author: update?.author || '- unknown author id -',
     changetime: update?.created || null
