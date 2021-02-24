@@ -2,6 +2,13 @@
 
 A dependency of Pelilauta from 4.0.0 onwards
 
+## Build instructions
+
+```bash
+npm run build
+npm run deploy
+```
+
 ## License
 
 MIT License

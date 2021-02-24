@@ -72,7 +72,38 @@ export const onThreadUpdated = functions.firestore.document('stream/{threadId}')
   return index.saveObject(note)
 })
 
+// Update the search index every time a thread post is written.
+export const onWikiPageCreated = functions.firestore.document('sites/{siteid}/pages/{pageid}').onCreate((snap, context) => {
+  // Get the note document
+  const update = snap.data()
+  const siteid = context.params.siteid
+  const pageid = context.params.pageid
 
+  return db.collection('pagelog').doc(`${siteid}/${pageid}`).set({
+    action: 'create',
+    siteid: siteid,
+    pageid: pageid,
+    content: update?.htmlContent || '- no content -',
+    author: update?.author || '- unknown author id -',
+    changetime: update?.created || null
+  })
+})
+// Update the search index every time a thread post is written.
+export const onWikiPageUpdated = functions.firestore.document('sites/{siteid}/pages/{pageid}').onUpdate((snap, context) => {
+  // Get the note document
+  const update = snap.after.data()
+  const siteid = context.params.siteid
+  const pageid = context.params.pageid
+
+  return db.collection('pagelog').doc(`${siteid}/${pageid}`).set({
+    action: 'update',
+    siteid: siteid,
+    pageid: pageid,
+    content: update?.htmlContent || '- no content -',
+    author: update?.author || '- unknown author id -',
+    changetime: update?.created || null
+  })
+})
 
 
 
