@@ -103,7 +103,7 @@ export const onWikiPageUpdated = functions.firestore.document('sites/{siteid}/pa
     name: update?.name || pageid,
     content: update?.htmlContent || '- no content -',
     author: update?.author || '- unknown author id -',
-    changetime: update?.created || null
+    changetime: update?.lastUpdate || null
   })
 })
 
