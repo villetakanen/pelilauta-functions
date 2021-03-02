@@ -97,12 +97,13 @@ export const onWikiPageUpdated = functions.firestore.document('sites/{siteid}/pa
   const pageid = context.params.pageid
 
   // by default, log everything, omit pages that are hidden, or ask for silent update
-  if (update?.silent || update?.hidden) return
+  if (update?.hidden) return
 
   return db.collection('pagelog').doc(`${siteid}.${pageid}`).set({
     action: 'update',
     siteid: siteid,
     pageid: pageid,
+    silent: update?.silent || false,
     name: update?.name || pageid,
     content: update?.htmlContent || '- no content -',
     author: update?.author || '- unknown author id -',
