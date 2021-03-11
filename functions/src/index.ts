@@ -84,7 +84,9 @@ export const onCommentAdded = functions.firestore.document('stream/{threadId}/co
           if (messagingToken) {
             admin.messaging().send({
               data: {
-                topic: threadDoc.data()?.title
+                topic: threadDoc.data()?.title || '',
+                icon: '/icons/fox-icon-512.png',
+                body: snap.data()?.content || ''
               },
               token: messagingToken
             }).then((response) => {
