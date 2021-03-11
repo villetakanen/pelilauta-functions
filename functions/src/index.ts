@@ -71,6 +71,41 @@ export const onThreadUpdated = functions.firestore.document('stream/{threadId}')
 
   return index.saveObject(note)
 })
+// Update the search index every time a thread post is written.
+export const onCommentAdded = functions.firestore.document('stream/{threadId}/comments/{commentId}').onCreate((snap, context) => {
+  // Get the note document
+  const parent = snap.ref.parent.parent
+  if (parent) {
+  parent.get().then((threadDoc) => {
+    const threadAuthor = threadDoc.data()?.author
+      if (threadAuthor) {
+        db.collection('profiles').doc(threadAuthor).collection('meta').doc('props').get().then((authorData) => {
+          const messagingToken = authorData.data()?.messagingToken
+          if (messagingToken) {
+            admin.messaging().send({
+              data: {
+                topic: threadDoc.data()?.title
+              },
+              token: messagingToken
+            }).then((response) => {
+              // Response is a message ID string.
+              console.log('Successfully sent message:', response)
+              return 'sent message to ' + threadDoc.data()?.author
+            })
+            .catch((error) => {
+              console.log('Error sending message:', error)
+            })
+          }
+        }).catch((error) => {
+          console.log('Error sending message:', error)
+        })
+      }
+    }).catch((error) => {
+      console.log('Error sending message:', error)
+    })
+  }
+})
+
 
 // Update the search index every time a thread post is written.
 export const onWikiPageCreated = functions.firestore.document('sites/{siteid}/pages/{pageid}').onCreate((snap, context) => {
@@ -110,10 +145,3 @@ export const onWikiPageUpdated = functions.firestore.document('sites/{siteid}/pa
     changetime: update?.lastUpdate || null
   })
 })
-
-
-
-/* export const threadKudos = functions.firestore.document('stream/{docID}')
-  .onUpdate((change, context) => { 
-    const likes = const
-  }) */
