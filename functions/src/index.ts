@@ -20,6 +20,20 @@ const client = algoliasearch(ALGOLIA_ID, ALGOLIA_ADMIN_KEY)
 admin.initializeApp()
 const db = admin.firestore()
 
+export interface Notification {
+  source: {
+    type: string
+    id: string
+    title: string
+    message?: string
+  }
+  meta: {
+    new?: boolean
+    author?: string
+  }
+}
+
+
 // Update the search index every time a thread post is written.
 export const onThreadCreated = functions.firestore.document('stream/{threadId}').onCreate((snap, context) => {
   // Get the note document
@@ -71,10 +85,44 @@ export const onThreadUpdated = functions.firestore.document('stream/{threadId}')
 
   return index.saveObject(note)
 })
-// Update the search index every time a thread post is written.
+/**
+ * a comment is added to a thread.
+ * 1. Add a notification to original author
+ */
 export const onCommentAdded = functions.firestore.document('stream/{threadId}/comments/{commentId}').onCreate((snap, context) => {
-  // Get the note document
+
+  // Get the reply document
+  const update = snap.data()
+  const threadId = context.params.threadId
+  // const commentId = context.params.commentId
+
+  // Get the parent thread
   const parent = snap.ref.parent.parent
+  return parent?.get().then((threadDoc) => {
+    // Make a notification  to the thread author
+    const threadAuthor = threadDoc.data()?.author
+    const inboxRef = db.collection('inbox').doc(threadAuthor)
+    return inboxRef.get().then((inboxDoc) => {
+      let m = inboxDoc.data()?.notifications
+      if (!m) m = new Array<Notification>()
+      m.push({
+        source: {
+          type: 'thread.reply',
+          id: threadId as string || '...',
+          title: threadDoc.data()?.title as string || '...',
+          message: 'notification.newThreadReply'
+        },
+        meta: {
+          new: true,
+          author: update?.author as string || '-'
+        }
+      })
+      return inboxRef.update({ notifications: m})
+    })
+  })
+
+  // Get the note document
+  /* const parent = snap.ref.parent.parent
   if (parent) {
   parent.get().then((threadDoc) => {
     const threadAuthor = threadDoc.data()?.author
@@ -83,10 +131,14 @@ export const onCommentAdded = functions.firestore.document('stream/{threadId}/co
           const messagingToken = authorData.data()?.messagingToken
           if (messagingToken) {
             admin.messaging().send({
-              data: {
-                topic: threadDoc.data()?.title || '',
-                icon: '/icons/fox-icon-512.png',
+              notification: {
+                title: threadDoc.data()?.title || '',
                 body: snap.data()?.content || ''
+              },
+              webpush: {
+                fcmOptions: {
+                  link: 'https://pelilauta.web.app/thread/view/'+parent?.id
+                }
               },
               token: messagingToken
             }).then((response) => {
@@ -105,7 +157,7 @@ export const onCommentAdded = functions.firestore.document('stream/{threadId}/co
     }).catch((error) => {
       console.log('Error sending message:', error)
     })
-  }
+  } */
 })
 
 
