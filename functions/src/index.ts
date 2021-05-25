@@ -117,7 +117,8 @@ export const onCommentAdded = functions.firestore.document('stream/{threadId}/co
           author: update?.author as string || '-'
         }
       })
-      return inboxRef.update({ notifications: m})
+      if (inboxDoc.exists) return inboxRef.update({ notifications: m})
+      return inboxRef.set({ owner: threadAuthor, notifications: m })
     })
   })
 
