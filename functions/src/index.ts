@@ -20,10 +20,11 @@ const client = algoliasearch(ALGOLIA_ID, ALGOLIA_ADMIN_KEY)
 admin.initializeApp()
 const db = admin.firestore()
 
-export interface Notification {
+export interface NotificationMessage {
   source: {
     type: string
     id: string
+    target?: string
     title: string
     message?: string
   }
@@ -94,32 +95,37 @@ export const onCommentAdded = functions.firestore.document('stream/{threadId}/co
   // Get the reply document
   const update = snap.data()
   const threadId = context.params.threadId
-  // const commentId = context.params.commentId
+  const commentId = context.params.commentId
 
   // Get the parent thread
   const parent = snap.ref.parent.parent
   return parent?.get().then((threadDoc) => {
     // Make a notification  to the thread author
     const threadAuthor = threadDoc.data()?.author
+    // If this the comment author is the thread author: return
+    if (threadAuthor === update?.author as string) return
+
     const inboxRef = db.collection('inbox').doc(threadAuthor)
     return inboxRef.get().then((inboxDoc) => {
       let m = inboxDoc.data()?.notifications
-      if (!m) m = new Array<Notification>()
+      if (!m) m = new Array<NotificationMessage>()
+      m = m.filter((n: NotificationMessage) => (n.source.id !== threadId as string))
       m.push({
         source: {
           type: 'thread.reply',
           id: threadId as string || '...',
           title: threadDoc.data()?.title as string || '...',
-          message: 'notification.newThreadReply'
+          message: 'notification.newThreadReply',
+          target: commentId as string || '...'
         },
         meta: {
           new: true,
           author: update?.author as string || '-'
         }
       })
-      if (m.length > 99) {
+      if (m.length > 37) {
         m.reverse()
-        m.length = 99
+        m.length = 37
         m.reverse()
       }
       if (inboxDoc.exists) return inboxRef.update({ notifications: m})
