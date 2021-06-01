@@ -86,6 +86,27 @@ export const onThreadUpdated = functions.firestore.document('stream/{threadId}')
 
   return index.saveObject(note)
 })
+
+
+function pushNotification(uid: string, note: NotificationMessage) {
+  console.log('pushNotification', uid, note)
+  const inboxRef = db.collection('inbox').doc(uid)
+  return inboxRef.get().then((inboxDoc) => {
+    let m = inboxDoc.data()?.notifications
+    if (!m) m = new Array<NotificationMessage>()
+    m = m.filter((n: NotificationMessage) => (n.source.id !== note.source.id && n.source.type !== note.source.type))
+    m.push(note)
+    if (m.length > 37) {
+      m.reverse()
+      m.length = 37
+      m.reverse()
+    }
+    if (inboxDoc.exists) return inboxRef.update({ notifications: m})
+    console.log('setting notifications to', m)
+    return inboxRef.set({ owner: uid, notifications: m })
+  })
+}
+
 /**
  * a comment is added to a thread.
  * 1. Add a notification to original author
@@ -100,37 +121,49 @@ export const onCommentAdded = functions.firestore.document('stream/{threadId}/co
   // Get the parent thread
   const parent = snap.ref.parent.parent
   return parent?.get().then((threadDoc) => {
+
+    // console.log(update.mentions)
+
+    // push a notification for everyone mentioned in he mentions array
+    if (Array.isArray(update.mentions)) update.mentions.forEach((mention) => {
+      // console.log('mention', mention)
+      if (typeof mention === 'string') {
+        pushNotification(mention, {
+          source: {
+            type: 'thread.reply.mention',
+            id: threadId as string,
+            title: threadDoc.data()?.title as string,
+            message: 'notification.mentionInThread',
+            target: commentId as string || '...'
+          },
+          meta: {
+            new: true,
+            author: update?.author as string || '-'
+          }
+        }).catch((e) => (
+          console.log(e)
+        ))
+      }
+    })
+
     // Make a notification  to the thread author
     const threadAuthor = threadDoc.data()?.author
     // If this the comment author is the thread author: return
     if (threadAuthor === update?.author as string) return
-
-    const inboxRef = db.collection('inbox').doc(threadAuthor)
-    return inboxRef.get().then((inboxDoc) => {
-      let m = inboxDoc.data()?.notifications
-      if (!m) m = new Array<NotificationMessage>()
-      m = m.filter((n: NotificationMessage) => (n.source.id !== threadId as string))
-      m.push({
-        source: {
-          type: 'thread.reply',
-          id: threadId as string || '...',
-          title: threadDoc.data()?.title as string || '...',
-          message: 'notification.newThreadReply',
-          target: commentId as string || '...'
-        },
-        meta: {
-          new: true,
-          author: update?.author as string || '-'
-        }
-      })
-      if (m.length > 37) {
-        m.reverse()
-        m.length = 37
-        m.reverse()
+    return pushNotification(threadAuthor, {
+      source: {
+        type: 'thread.reply',
+        id: threadId as string || '...',
+        title: threadDoc.data()?.title as string || '...',
+        message: 'notification.newThreadReply',
+        target: commentId as string || '...'
+      },
+      meta: {
+        new: true,
+        author: update?.author as string || '-'
       }
-      if (inboxDoc.exists) return inboxRef.update({ notifications: m})
-      return inboxRef.set({ owner: threadAuthor, notifications: m })
     })
+    
   })
 
   // Get the note document
